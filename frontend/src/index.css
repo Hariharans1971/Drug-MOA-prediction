@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', 'sans-serif';
+
+  --color-research-black: #0a0a0a;
+  --color-research-dark: #171717;
+  --color-research-panel: #262626;
+  --color-research-border: #404040;
+  --color-research-text: #e5e5e5;
+  --color-research-muted: #a3a3a3;
+}
+
+@layer base {
+  body {
+    @apply bg-neutral-950 text-neutral-100 antialiased font-sans;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-neutral-900/50 backdrop-blur-md border border-neutral-800 shadow-xl;
+  }
+}
