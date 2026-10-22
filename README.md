@@ -44,7 +44,7 @@ Set a strong local admin password first:
 
 Windows PowerShell:
 ```powershell
-$env:SECRET_KEY = python -c "import secrets; print(secrets.token_urlsafe(48))"
+$env:SECRET_KEY = (python -c "import secrets; print(secrets.token_urlsafe(48))")
 $env:MOA_ADMIN_EMAIL = "admin@example.com"
 $env:MOA_ADMIN_PASSWORD = "choose-a-strong-unique-password"
 python seed_user.py
