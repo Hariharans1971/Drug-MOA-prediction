@@ -1,10 +1,16 @@
+import os
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-# Secret key should be in env var for production, hardcoded for demo
-SECRET_KEY = "supersecretkey_moa_xformer_2025"
+# Never keep a JWT signing key in source control. A missing/short key must fail closed.
+SECRET_KEY = os.getenv("SECRET_KEY", "").strip()
+if len(SECRET_KEY) < 32 or SECRET_KEY == "replace_with_a_random_32_byte_or_longer_secret":
+    raise RuntimeError(
+        "SECRET_KEY is missing or too short. Set a unique random value (at least 32 characters); "
+        "see .env.example. Do not reuse the historical demo value."
+    )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
