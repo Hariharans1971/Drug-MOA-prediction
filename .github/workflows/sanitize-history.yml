@@ -1,0 +1,91 @@
+name: Sanitize historical JWT signing-key fallback
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_rotation:
+        description: "Select yes only after confirming the old demo signing key is not active in a deployment and any deployed instance has been rotated."
+        required: true
+        type: choice
+        default: "no"
+        options:
+          - "no"
+          - "yes"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sanitize-history-drug-moa
+  cancel-in-progress: false
+
+jobs:
+  confirm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require signing-key rotation confirmation
+        env:
+          CONFIRM_ROTATION: ${{ inputs.confirm_rotation }}
+          REF_NAME: ${{ github.ref }}
+        run: |
+          set -Eeuo pipefail
+          if [ "$CONFIRM_ROTATION" != "yes" ]; then
+            echo "::error::No history changes were made. Confirm the old signing key is inactive and any deployment has been rotated first."
+            exit 1
+          fi
+          if [ "$REF_NAME" != "refs/heads/main" ]; then
+            echo "::error::Run this workflow from the main branch only."
+            exit 1
+          fi
+
+  rewrite:
+    needs: confirm
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - name: Check out complete repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify current signing code fails closed
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          grep -Fq 'SECRET_KEY = os.getenv("SECRET_KEY", "").strip()' backend/app/core/security.py
+          grep -Fq 'raise RuntimeError(' backend/app/core/security.py
+          echo "Current JWT implementation reads the key from the environment and has no hardcoded fallback."
+
+      - name: Remove old security module versions and restore only the hardened version
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          original_head="$GITHUB_SHA"
+          cp backend/app/core/security.py "$RUNNER_TEMP/security.py"
+          python -m pip install --disable-pip-version-check git-filter-repo
+          git filter-repo --force --path backend/app/core/security.py --invert-paths
+
+          mkdir -p backend/app/core
+          cp "$RUNNER_TEMP/security.py" backend/app/core/security.py
+          git add backend/app/core/security.py
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "security: restore environment-only JWT signing key after history cleanup"
+
+          path_commit_count="$(git rev-list --all -- backend/app/core/security.py | wc -l | tr -d ' ')"
+          if [ "$path_commit_count" != "1" ]; then
+            echo "::error::Expected only the final hardened security module in history, found $path_commit_count commits touching that path."
+            exit 1
+          fi
+
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          auth_header="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" \
+            push --force-with-lease="refs/heads/main:$original_head" origin HEAD:refs/heads/main
+
+          echo "History rewritten and pushed with force-with-lease. Older versions of the JWT module were removed; only the hardened current file remains."
+        env:
+          GH_TOKEN: ${{ github.token }}
