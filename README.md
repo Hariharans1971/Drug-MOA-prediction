@@ -44,6 +44,7 @@ Set a strong local admin password first:
 
 Windows PowerShell:
 ```powershell
+$env:SECRET_KEY = python -c "import secrets; print(secrets.token_urlsafe(48))"
 $env:MOA_ADMIN_EMAIL = "admin@example.com"
 $env:MOA_ADMIN_PASSWORD = "choose-a-strong-unique-password"
 python seed_user.py
@@ -51,12 +52,15 @@ python seed_user.py
 
 macOS/Linux:
 ```bash
+export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
 export MOA_ADMIN_EMAIL="admin@example.com"
 export MOA_ADMIN_PASSWORD="choose-a-strong-unique-password"
 python seed_user.py
 ```
 
-Do not commit real passwords or local database files. The database is generated locally and ignored by Git.
+Set the same `SECRET_KEY` in the shell that starts Uvicorn (generate a fresh unique value there too if using a separate terminal). A missing or short key intentionally prevents startup. The previously hardcoded demonstration key is no longer used; if that old value was ever used by a deployed service, rotate it so tokens signed with the old key are rejected.
+
+Do not commit real passwords, signing keys, or local database files. The database is generated locally and ignored by Git. The `.env.example` file documents names but is not automatically loaded by Python.
 
 Start the API from the repository root using the actual module path in the backend:
 
