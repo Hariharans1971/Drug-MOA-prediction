@@ -14,8 +14,13 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def seed_user():
     db = SessionLocal()
-    email = "admin@example.com"
-    password = "password123"
+    email = os.getenv("MOA_ADMIN_EMAIL", "admin@example.com").strip()
+    password = os.getenv("MOA_ADMIN_PASSWORD", "").strip()
+    if not password:
+        raise SystemExit(
+            "Set MOA_ADMIN_PASSWORD in your local environment before seeding an account. "
+            "Do not use a committed default password."
+        )
     
     # Check if user exists
     existing_user = db.query(User).filter(User.email == email).first()
@@ -32,7 +37,7 @@ def seed_user():
     )
     db.add(user)
     db.commit()
-    print(f"Successfully created user: {email} / {password}")
+    print(f"Successfully created user: {email}. Password was not displayed.")
     db.close()
 
 if __name__ == "__main__":
